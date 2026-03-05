@@ -176,10 +176,12 @@ class DatabaseManager:
             metrics["total_crypto_records"] = cur.fetchone()["count"]
 
             # Data freshness
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT MAX(timestamp) as latest_timestamp
                 FROM stock_prices_raw
-            """)
+            """
+            )
             result = cur.fetchone()
             if result["latest_timestamp"]:
                 metrics["data_freshness_minutes"] = (
@@ -187,11 +189,13 @@ class DatabaseManager:
                 ).total_seconds() / 60
 
             # Missing data detection
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT COUNT(*) as count
                 FROM stock_prices_raw
                 WHERE close_price IS NULL OR volume IS NULL
-            """)
+            """
+            )
             metrics["records_with_nulls"] = cur.fetchone()["count"]
 
             return metrics

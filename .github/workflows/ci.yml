@@ -97,7 +97,7 @@ jobs:
 
     - name: Install linting tools
       run: |
-        pip install flake8 black
+        pip install flake8 black==23.12.1
 
     - name: Run flake8
       continue-on-error: true
