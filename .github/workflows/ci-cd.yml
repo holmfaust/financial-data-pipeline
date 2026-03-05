@@ -375,13 +375,13 @@ jobs:
           echo "Running production health checks..."
           # Add health check commands
           
-      - name: Notify deployment
+      - name: Deployment summary
         if: always()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: 'Production deployment completed!'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          echo "## Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
 
   # Job 8: Performance Testing
   performance:
