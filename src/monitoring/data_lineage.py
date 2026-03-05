@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class DatasetType(Enum):
     """Types of datasets in the pipeline"""
+
     RAW = "raw"
     PROCESSED = "processed"
     AGGREGATED = "aggregated"
@@ -28,6 +29,7 @@ class DatasetType(Enum):
 
 class TransformationType(Enum):
     """Types of transformations"""
+
     INGESTION = "ingestion"
     FILTERING = "filtering"
     AGGREGATION = "aggregation"
@@ -39,6 +41,7 @@ class TransformationType(Enum):
 @dataclass
 class Dataset:
     """Represents a dataset in the pipeline"""
+
     id: str
     name: str
     type: DatasetType
@@ -47,18 +50,15 @@ class Dataset:
     row_count: int
     created_at: datetime
     metadata: Dict[str, Any]
-    
+
     def to_dict(self):
-        return {
-            **asdict(self),
-            'type': self.type.value,
-            'created_at': self.created_at.isoformat()
-        }
+        return {**asdict(self), "type": self.type.value, "created_at": self.created_at.isoformat()}
 
 
 @dataclass
 class Transformation:
     """Represents a transformation between datasets"""
+
     id: str
     name: str
     type: TransformationType
@@ -72,12 +72,12 @@ class Transformation:
     row_count_input: int
     row_count_output: int
     status: str  # success, failed, running
-    
+
     def to_dict(self):
         return {
             **asdict(self),
-            'type': self.type.value,
-            'executed_at': self.executed_at.isoformat()
+            "type": self.type.value,
+            "executed_at": self.executed_at.isoformat(),
         }
 
 
@@ -85,21 +85,21 @@ class DataLineageTracker:
     """
     Tracks data lineage throughout the pipeline
     """
-    
+
     def __init__(self):
         self.conn_params = {
-            'host': os.getenv('DB_HOST', 'localhost'),
-            'port': os.getenv('DB_PORT', '5432'),
-            'database': os.getenv('DB_NAME', 'financial_data'),
-            'user': os.getenv('DB_USER', 'dataeng'),
-            'password': os.getenv('DB_PASSWORD', 'dataeng123')
+            "host": os.getenv("DB_HOST", "localhost"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "database": os.getenv("DB_NAME", "financial_data"),
+            "user": os.getenv("DB_USER", "dataeng"),
+            "password": os.getenv("DB_PASSWORD", "dataeng123"),
         }
         self._initialize_schema()
-    
+
     def _get_connection(self):
         """Get database connection"""
         return psycopg2.connect(**self.conn_params)
-    
+
     def _initialize_schema(self):
         """Create lineage tracking tables if they don't exist"""
         create_tables_sql = """
@@ -172,7 +172,7 @@ class DataLineageTracker:
         CREATE INDEX IF NOT EXISTS idx_edges_source ON lineage_edges(source_dataset_id);
         CREATE INDEX IF NOT EXISTS idx_edges_target ON lineage_edges(target_dataset_id);
         """
-        
+
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
@@ -181,13 +181,14 @@ class DataLineageTracker:
             logger.info("Lineage tracking schema initialized")
         except Exception as e:
             logger.error(f"Error initializing lineage schema: {e}")
-    
+
     def register_dataset(self, dataset: Dataset) -> str:
         """Register a new dataset in the lineage system"""
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         INSERT INTO lineage_datasets 
                         (id, name, type, schema, location, row_count, created_at, metadata)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -195,95 +196,116 @@ class DataLineageTracker:
                             row_count = EXCLUDED.row_count,
                             metadata = EXCLUDED.metadata
                         RETURNING id
-                    """, (
-                        dataset.id,
-                        dataset.name,
-                        dataset.type.value,
-                        Json(dataset.schema),
-                        dataset.location,
-                        dataset.row_count,
-                        dataset.created_at,
-                        Json(dataset.metadata)
-                    ))
+                    """,
+                        (
+                            dataset.id,
+                            dataset.name,
+                            dataset.type.value,
+                            Json(dataset.schema),
+                            dataset.location,
+                            dataset.row_count,
+                            dataset.created_at,
+                            Json(dataset.metadata),
+                        ),
+                    )
                     result = cur.fetchone()
                 conn.commit()
-                
+
             logger.info(f"Registered dataset: {dataset.name} (ID: {dataset.id})")
             return result[0]
-            
+
         except Exception as e:
             logger.error(f"Error registering dataset: {e}")
             raise
-    
+
     def track_transformation(self, transformation: Transformation) -> str:
         """Track a transformation between datasets"""
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
                     # Insert transformation
-                    cur.execute("""
+                    cur.execute(
+                        """
                         INSERT INTO lineage_transformations
                         (id, name, type, description, input_datasets, output_dataset,
                          code_reference, parameters, executed_at, duration_seconds,
                          row_count_input, row_count_output, status)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
-                    """, (
-                        transformation.id,
-                        transformation.name,
-                        transformation.type.value,
-                        transformation.description,
-                        Json(transformation.input_datasets),
-                        transformation.output_dataset,
-                        transformation.code_reference,
-                        Json(transformation.parameters),
-                        transformation.executed_at,
-                        transformation.duration_seconds,
-                        transformation.row_count_input,
-                        transformation.row_count_output,
-                        transformation.status
-                    ))
-                    
+                    """,
+                        (
+                            transformation.id,
+                            transformation.name,
+                            transformation.type.value,
+                            transformation.description,
+                            Json(transformation.input_datasets),
+                            transformation.output_dataset,
+                            transformation.code_reference,
+                            Json(transformation.parameters),
+                            transformation.executed_at,
+                            transformation.duration_seconds,
+                            transformation.row_count_input,
+                            transformation.row_count_output,
+                            transformation.status,
+                        ),
+                    )
+
                     # Create lineage edges
                     for input_dataset in transformation.input_datasets:
-                        cur.execute("""
+                        cur.execute(
+                            """
                             INSERT INTO lineage_edges
                             (source_dataset_id, target_dataset_id, transformation_id)
                             VALUES (%s, %s, %s)
                             ON CONFLICT (source_dataset_id, target_dataset_id, transformation_id)
                             DO NOTHING
-                        """, (input_dataset, transformation.output_dataset, transformation.id))
-                    
+                        """,
+                            (input_dataset, transformation.output_dataset, transformation.id),
+                        )
+
                 conn.commit()
-                
+
             logger.info(f"Tracked transformation: {transformation.name}")
             return transformation.id
-            
+
         except Exception as e:
             logger.error(f"Error tracking transformation: {e}")
             raise
-    
-    def track_column_lineage(self, transformation_id: str, source_dataset_id: str,
-                            source_column: str, target_dataset_id: str,
-                            target_column: str, transformation_logic: str):
+
+    def track_column_lineage(
+        self,
+        transformation_id: str,
+        source_dataset_id: str,
+        source_column: str,
+        target_dataset_id: str,
+        target_column: str,
+        transformation_logic: str,
+    ):
         """Track column-level lineage"""
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         INSERT INTO lineage_columns
                         (transformation_id, source_dataset_id, source_column,
                          target_dataset_id, target_column, transformation_logic)
                         VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (
-                        transformation_id, source_dataset_id, source_column,
-                        target_dataset_id, target_column, transformation_logic
-                    ))
+                    """,
+                        (
+                            transformation_id,
+                            source_dataset_id,
+                            source_column,
+                            target_dataset_id,
+                            target_column,
+                            transformation_logic,
+                        ),
+                    )
                 conn.commit()
-                
+
         except Exception as e:
             logger.error(f"Error tracking column lineage: {e}")
-    
+
     def get_dataset_lineage(self, dataset_id: str, direction: str = "both") -> Dict:
         """
         Get lineage for a dataset
@@ -293,21 +315,25 @@ class DataLineageTracker:
             with self._get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     lineage = {
-                        'dataset': None,
-                        'upstream': [],
-                        'downstream': [],
-                        'transformations': []
+                        "dataset": None,
+                        "upstream": [],
+                        "downstream": [],
+                        "transformations": [],
                     }
-                    
+
                     # Get dataset info
-                    cur.execute("""
+                    cur.execute(
+                        """
                         SELECT * FROM lineage_datasets WHERE id = %s
-                    """, (dataset_id,))
-                    lineage['dataset'] = cur.fetchone()
-                    
-                    if direction in ['upstream', 'both']:
+                    """,
+                        (dataset_id,),
+                    )
+                    lineage["dataset"] = cur.fetchone()
+
+                    if direction in ["upstream", "both"]:
                         # Get upstream datasets
-                        cur.execute("""
+                        cur.execute(
+                            """
                             SELECT 
                                 d.*,
                                 t.name as transformation_name,
@@ -316,12 +342,15 @@ class DataLineageTracker:
                             JOIN lineage_edges e ON d.id = e.source_dataset_id
                             JOIN lineage_transformations t ON e.transformation_id = t.id
                             WHERE e.target_dataset_id = %s
-                        """, (dataset_id,))
-                        lineage['upstream'] = cur.fetchall()
-                    
-                    if direction in ['downstream', 'both']:
+                        """,
+                            (dataset_id,),
+                        )
+                        lineage["upstream"] = cur.fetchall()
+
+                    if direction in ["downstream", "both"]:
                         # Get downstream datasets
-                        cur.execute("""
+                        cur.execute(
+                            """
                             SELECT 
                                 d.*,
                                 t.name as transformation_name,
@@ -330,32 +359,38 @@ class DataLineageTracker:
                             JOIN lineage_edges e ON d.id = e.target_dataset_id
                             JOIN lineage_transformations t ON e.transformation_id = t.id
                             WHERE e.source_dataset_id = %s
-                        """, (dataset_id,))
-                        lineage['downstream'] = cur.fetchall()
-                    
+                        """,
+                            (dataset_id,),
+                        )
+                        lineage["downstream"] = cur.fetchall()
+
                     # Get related transformations
-                    cur.execute("""
+                    cur.execute(
+                        """
                         SELECT * FROM lineage_transformations
                         WHERE output_dataset = %s
                            OR %s = ANY(
                                SELECT jsonb_array_elements_text(input_datasets)
                            )
                         ORDER BY executed_at DESC
-                    """, (dataset_id, dataset_id))
-                    lineage['transformations'] = cur.fetchall()
-                    
+                    """,
+                        (dataset_id, dataset_id),
+                    )
+                    lineage["transformations"] = cur.fetchall()
+
             return lineage
-            
+
         except Exception as e:
             logger.error(f"Error getting dataset lineage: {e}")
             return {}
-    
+
     def get_transformation_history(self, dataset_name: str, limit: int = 10) -> List[Dict]:
         """Get transformation history for a dataset"""
         try:
             with self._get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         SELECT 
                             t.*,
                             d.name as output_dataset_name
@@ -364,19 +399,22 @@ class DataLineageTracker:
                         WHERE d.name = %s
                         ORDER BY t.executed_at DESC
                         LIMIT %s
-                    """, (dataset_name, limit))
+                    """,
+                        (dataset_name, limit),
+                    )
                     return cur.fetchall()
         except Exception as e:
             logger.error(f"Error getting transformation history: {e}")
             return []
-    
+
     def generate_lineage_graph(self, dataset_id: str) -> Dict:
         """Generate a graph representation of data lineage"""
         try:
             with self._get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     # Get all related nodes and edges
-                    cur.execute("""
+                    cur.execute(
+                        """
                         WITH RECURSIVE lineage_tree AS (
                             -- Base case: start dataset
                             SELECT id, name, type, 0 as level
@@ -404,12 +442,15 @@ class DataLineageTracker:
                         SELECT DISTINCT id, name, type, level
                         FROM lineage_tree
                         ORDER BY level, name
-                    """, (dataset_id,))
+                    """,
+                        (dataset_id,),
+                    )
                     nodes = cur.fetchall()
-                    
+
                     # Get edges between these nodes
-                    node_ids = [n['id'] for n in nodes]
-                    cur.execute("""
+                    node_ids = [n["id"] for n in nodes]
+                    cur.execute(
+                        """
                         SELECT 
                             e.*,
                             t.name as transformation_name,
@@ -418,24 +459,24 @@ class DataLineageTracker:
                         JOIN lineage_transformations t ON e.transformation_id = t.id
                         WHERE e.source_dataset_id = ANY(%s)
                           AND e.target_dataset_id = ANY(%s)
-                    """, (node_ids, node_ids))
+                    """,
+                        (node_ids, node_ids),
+                    )
                     edges = cur.fetchall()
-                    
-            return {
-                'nodes': nodes,
-                'edges': edges
-            }
-            
+
+            return {"nodes": nodes, "edges": edges}
+
         except Exception as e:
             logger.error(f"Error generating lineage graph: {e}")
-            return {'nodes': [], 'edges': []}
-    
+            return {"nodes": [], "edges": []}
+
     def get_data_quality_impact(self, dataset_id: str) -> Dict:
         """Analyze impact of data quality issues on downstream datasets"""
         try:
             with self._get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         WITH RECURSIVE downstream AS (
                             SELECT id, name, 1 as depth
                             FROM lineage_datasets
@@ -456,12 +497,11 @@ class DataLineageTracker:
                         FROM downstream
                         WHERE depth > 1
                         GROUP BY name
-                    """, (dataset_id,))
-                    
-                    return {
-                        'source_dataset': dataset_id,
-                        'affected_datasets': cur.fetchall()
-                    }
+                    """,
+                        (dataset_id,),
+                    )
+
+                    return {"source_dataset": dataset_id, "affected_datasets": cur.fetchall()}
         except Exception as e:
             logger.error(f"Error analyzing quality impact: {e}")
             return {}
@@ -482,10 +522,10 @@ def generate_transformation_id(name: str, timestamp: datetime) -> str:
 # Example usage
 if __name__ == "__main__":
     tracker = DataLineageTracker()
-    
+
     # Example: Track stock data ingestion
     now = datetime.now()
-    
+
     # Register raw dataset
     raw_dataset = Dataset(
         id=generate_dataset_id("stock_prices_raw", now),
@@ -495,19 +535,15 @@ if __name__ == "__main__":
             "symbol": "VARCHAR",
             "timestamp": "TIMESTAMP",
             "close_price": "DECIMAL",
-            "volume": "BIGINT"
+            "volume": "BIGINT",
         },
         location="postgresql://localhost/financial_data/stock_prices_raw",
         row_count=1000,
         created_at=now,
-        metadata={
-            "source": "yfinance",
-            "symbols": ["AAPL", "GOOGL"],
-            "quality_score": 0.98
-        }
+        metadata={"source": "yfinance", "symbols": ["AAPL", "GOOGL"], "quality_score": 0.98},
     )
     tracker.register_dataset(raw_dataset)
-    
+
     # Register processed dataset
     processed_dataset = Dataset(
         id=generate_dataset_id("stock_metrics_5min", now),
@@ -517,15 +553,15 @@ if __name__ == "__main__":
             "symbol": "VARCHAR",
             "window_start": "TIMESTAMP",
             "avg_price": "DECIMAL",
-            "volume": "BIGINT"
+            "volume": "BIGINT",
         },
         location="postgresql://localhost/financial_data/stock_metrics_5min",
         row_count=50,
         created_at=now,
-        metadata={"aggregation_window": "5min"}
+        metadata={"aggregation_window": "5min"},
     )
     tracker.register_dataset(processed_dataset)
-    
+
     # Track transformation
     transformation = Transformation(
         id=generate_transformation_id("5min_aggregation", now),
@@ -540,10 +576,10 @@ if __name__ == "__main__":
         duration_seconds=15.5,
         row_count_input=1000,
         row_count_output=50,
-        status="success"
+        status="success",
     )
     tracker.track_transformation(transformation)
-    
+
     # Track column-level lineage
     tracker.track_column_lineage(
         transformation_id=transformation.id,
@@ -551,9 +587,9 @@ if __name__ == "__main__":
         source_column="close_price",
         target_dataset_id=processed_dataset.id,
         target_column="avg_price",
-        transformation_logic="AVG(close_price) OVER (window)"
+        transformation_logic="AVG(close_price) OVER (window)",
     )
-    
+
     # Query lineage
     lineage = tracker.get_dataset_lineage(processed_dataset.id)
     logger.info(f"Lineage: {json.dumps(lineage, indent=2, default=str)}")
