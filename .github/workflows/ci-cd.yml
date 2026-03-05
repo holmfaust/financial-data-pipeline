@@ -413,7 +413,7 @@ jobs:
     if: always()
     
     steps:
-      - name: Summary
+      - name: Pipeline Summary
         if: always()
         run: |
           echo "## CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
@@ -422,16 +422,3 @@ jobs:
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Triggered by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-
-      - name: Send Slack notification
-        if: ${{ secrets.SLACK_WEBHOOK != '' }}
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: |
-            CI/CD Pipeline completed
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            Commit: ${{ github.sha }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

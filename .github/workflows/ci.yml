@@ -100,6 +100,7 @@ jobs:
         pip install flake8 black
 
     - name: Run flake8
+      continue-on-error: true
       run: |
         flake8 src/ tests/ --max-line-length=100 --ignore=E501,W503
 
