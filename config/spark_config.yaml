@@ -1,0 +1,283 @@
+# Apache Spark Configuration for Streaming Processing
+
+spark:
+  # Application settings
+  app:
+    name: "FinancialDataStreamProcessor"
+    
+  # Master configuration
+  master:
+    url: "spark://spark-master:7077"
+    # For local testing: "local[*]"
+    
+  # Executor configuration
+  executor:
+    memory: "2g"
+    cores: 2
+    instances: 2
+    
+  # Driver configuration
+  driver:
+    memory: "1g"
+    cores: 1
+    maxResultSize: "1g"
+    
+  # Shuffle configuration
+  shuffle:
+    partitions: 200
+    compress: true
+    spill_compress: true
+    
+  # Streaming configuration
+  streaming:
+    # Batch interval
+    batch_duration: "30 seconds"
+    
+    # Checkpointing
+    checkpoint_location: "/tmp/spark-checkpoint"
+    checkpoint_interval: "10 seconds"
+    
+    # Backpressure
+    backpressure:
+      enabled: true
+      initial_rate: 100
+      
+    # Kafka integration
+    kafka:
+      max_offsets_per_trigger: 10000
+      starting_offsets: "latest"
+      fail_on_data_loss: false
+      
+    # Watermark configuration
+    watermark:
+      delay: "5 minutes"
+      
+    # Window configuration
+    windows:
+      one_minute:
+        duration: "1 minute"
+        slide: "1 minute"
+      five_minute:
+        duration: "5 minutes"
+        slide: "1 minute"
+      fifteen_minute:
+        duration: "15 minutes"
+        slide: "5 minutes"
+        
+  # SQL configuration
+  sql:
+    adaptive:
+      enabled: true
+      coalescePartitions_enabled: true
+    shuffle:
+      partitions: 200
+    files:
+      maxPartitionBytes: "128mb"
+      openCostInBytes: "4mb"
+      
+  # Serialization
+  serializer: "org.apache.spark.serializer.KryoSerializer"
+  kryoserializer:
+    buffer_max: "512m"
+    
+  # Compression
+  compression:
+    codec: "snappy"
+    
+  # Memory management
+  memory:
+    fraction: 0.6
+    storageFraction: 0.5
+    offHeap:
+      enabled: false
+      size: "0g"
+      
+  # Network
+  network:
+    timeout: "300s"
+    
+  # Logging
+  log:
+    level: "WARN"
+    
+  # Metrics
+  metrics:
+    enabled: true
+    namespace: "financial_pipeline"
+    
+  # JARs and packages
+  jars:
+    packages:
+      - "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0"
+      - "org.postgresql:postgresql:42.6.0"
+      - "org.apache.kafka:kafka-clients:3.5.0"
+      
+# Database configuration for Spark
+database:
+  postgresql:
+    url: "jdbc:postgresql://postgres:5432/financial_data"
+    driver: "org.postgresql.Driver"
+    user: "dataeng"
+    password: "dataeng123"
+    properties:
+      numPartitions: 4
+      batchsize: 10000
+      isolationLevel: "READ_COMMITTED"
+      
+  # Connection pool
+  connection_pool:
+    max_size: 10
+    min_size: 2
+    acquire_increment: 2
+    idle_timeout: 600
+    
+# Processing configuration
+processing:
+  # Aggregation windows
+  aggregations:
+    one_min:
+      enabled: true
+      output_table: "stock_metrics_1min"
+    five_min:
+      enabled: true
+      output_table: "stock_metrics_5min"
+    fifteen_min:
+      enabled: false
+      output_table: "stock_metrics_15min"
+      
+  # Technical indicators
+  technical_indicators:
+    sma:
+      enabled: true
+      periods: [20, 50, 200]
+    ema:
+      enabled: true
+      periods: [12, 26]
+    bollinger_bands:
+      enabled: true
+      period: 20
+      std_dev: 2
+    rsi:
+      enabled: false
+      period: 14
+    macd:
+      enabled: false
+      fast: 12
+      slow: 26
+      signal: 9
+      
+  # Anomaly detection
+  anomaly_detection:
+    enabled: true
+    methods:
+      - "z_score"  # 3-sigma rule
+      - "iqr"      # Interquartile range
+      - "isolation_forest"
+    thresholds:
+      z_score: 3.0
+      iqr_multiplier: 1.5
+      price_spike_pct: 5.0
+      volume_spike_multiplier: 3.0
+      
+  # Data quality checks
+  data_quality:
+    enabled: true
+    checks:
+      - "null_check"
+      - "duplicate_check"
+      - "range_check"
+      - "freshness_check"
+    fail_on_error: false
+    
+# Environment-specific configurations
+environments:
+  development:
+    spark:
+      master:
+        url: "local[*]"
+      executor:
+        memory: "1g"
+        cores: 1
+        instances: 1
+      streaming:
+        batch_duration: "10 seconds"
+      log:
+        level: "INFO"
+        
+  staging:
+    spark:
+      master:
+        url: "spark://spark-staging:7077"
+      executor:
+        memory: "4g"
+        cores: 2
+        instances: 3
+      streaming:
+        batch_duration: "30 seconds"
+        
+  production:
+    spark:
+      master:
+        url: "spark://spark-prod-master:7077"
+      executor:
+        memory: "8g"
+        cores: 4
+        instances: 10
+      driver:
+        memory: "4g"
+        cores: 2
+      streaming:
+        batch_duration: "30 seconds"
+        checkpoint_location: "s3a://pipeline-checkpoints/spark"
+      log:
+        level: "ERROR"
+        
+# Performance tuning
+performance:
+  # Caching
+  caching:
+    enabled: true
+    storage_level: "MEMORY_AND_DISK_SER"
+    
+  # Broadcast
+  broadcast:
+    threshold: "10mb"
+    
+  # Partitioning
+  partitioning:
+    strategy: "hash"  # hash, range, or custom
+    columns: ["symbol"]
+    
+  # Coalesce
+  coalesce:
+    enabled: true
+    num_partitions: 1  # For writing to single output
+    
+# Monitoring and alerting
+monitoring:
+  enabled: true
+  
+  # Metrics to track
+  metrics:
+    - "processing_time"
+    - "scheduling_delay"
+    - "total_delay"
+    - "input_rate"
+    - "processed_rows"
+    - "batch_duration"
+    
+  # Alerting thresholds
+  alerts:
+    processing_time_ms: 30000  # Alert if > 30s
+    scheduling_delay_ms: 60000  # Alert if > 60s
+    batch_failure_rate: 0.05    # Alert if > 5%
+    
+  # Export to
+  exporters:
+    - type: "prometheus"
+      enabled: true
+      port: 9090
+    - type: "graphite"
+      enabled: false
+      host: "graphite.internal"
+      port: 2003

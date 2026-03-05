@@ -1,0 +1,148 @@
+# Kafka Configuration for Financial Data Pipeline
+
+kafka:
+  # Bootstrap servers
+  bootstrap_servers:
+    - "localhost:9092"
+    - "kafka:29092"  # Internal Docker network
+  
+  # Producer configuration
+  producer:
+    # Reliability settings
+    acks: "all"  # Wait for all replicas
+    retries: 3
+    max_in_flight_requests_per_connection: 1
+    enable_idempotence: true
+    
+    # Batching for performance
+    batch_size: 16384  # 16KB
+    linger_ms: 10  # Wait 10ms to batch messages
+    compression_type: "snappy"
+    
+    # Timeouts
+    request_timeout_ms: 30000
+    delivery_timeout_ms: 120000
+    
+    # Buffer settings
+    buffer_memory: 33554432  # 32MB
+    max_block_ms: 60000
+    
+  # Consumer configuration
+  consumer:
+    # Group settings
+    group_id: "financial-data-consumers"
+    auto_offset_reset: "latest"  # Start from latest for real-time
+    enable_auto_commit: false  # Manual commit for reliability
+    
+    # Fetch settings
+    fetch_min_bytes: 1
+    fetch_max_wait_ms: 500
+    max_poll_records: 500
+    max_poll_interval_ms: 300000
+    
+    # Session settings
+    session_timeout_ms: 30000
+    heartbeat_interval_ms: 10000
+    
+    # Isolation level
+    isolation_level: "read_committed"
+    
+  # Topics configuration
+  topics:
+    stock_prices:
+      name: "stock-prices-raw"
+      partitions: 3
+      replication_factor: 1
+      config:
+        retention_ms: 259200000  # 3 days
+        segment_ms: 3600000  # 1 hour
+        compression_type: "snappy"
+        cleanup_policy: "delete"
+        min_insync_replicas: 1
+        
+    crypto_prices:
+      name: "crypto-prices-raw"
+      partitions: 3
+      replication_factor: 1
+      config:
+        retention_ms: 259200000  # 3 days
+        segment_ms: 3600000
+        compression_type: "snappy"
+        cleanup_policy: "delete"
+        min_insync_replicas: 1
+        
+    processed_metrics:
+      name: "processed-metrics"
+      partitions: 6
+      replication_factor: 1
+      config:
+        retention_ms: 604800000  # 7 days
+        segment_ms: 3600000
+        compression_type: "snappy"
+        cleanup_policy: "delete"
+        
+    anomalies:
+      name: "price-anomalies"
+      partitions: 1
+      replication_factor: 1
+      config:
+        retention_ms: 2592000000  # 30 days
+        segment_ms: 86400000  # 1 day
+        compression_type: "snappy"
+        cleanup_policy: "delete"
+  
+  # Schema Registry (optional)
+  schema_registry:
+    enabled: false
+    url: "http://localhost:8081"
+    
+  # Monitoring
+  monitoring:
+    metrics_enabled: true
+    jmx_port: 9999
+    
+  # Error handling
+  error_handling:
+    max_retries: 3
+    retry_backoff_ms: 1000
+    dead_letter_topic: "dlq-financial-data"
+    
+# Environment-specific overrides
+environments:
+  development:
+    kafka:
+      bootstrap_servers:
+        - "localhost:9092"
+      consumer:
+        auto_offset_reset: "earliest"  # For testing
+        
+  staging:
+    kafka:
+      bootstrap_servers:
+        - "kafka-staging:9092"
+      topics:
+        stock_prices:
+          partitions: 6
+          replication_factor: 2
+          
+  production:
+    kafka:
+      bootstrap_servers:
+        - "kafka-prod-1:9092"
+        - "kafka-prod-2:9092"
+        - "kafka-prod-3:9092"
+      producer:
+        acks: "all"
+        retries: 5
+        enable_idempotence: true
+      topics:
+        stock_prices:
+          partitions: 12
+          replication_factor: 3
+          config:
+            min_insync_replicas: 2
+        crypto_prices:
+          partitions: 12
+          replication_factor: 3
+          config:
+            min_insync_replicas: 2

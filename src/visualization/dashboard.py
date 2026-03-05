@@ -292,7 +292,7 @@ def main():
             with col1:
                 # SMA chart
                 sma_fig = create_line_chart(agg_metrics, selected_symbol, 
-                                           'sma_20', 'Simple Moving Average (20)')
+                                           'calculated_sma_20', 'Simple Moving Average (20)')
                 if sma_fig:
                     st.plotly_chart(sma_fig, use_container_width=True)
             

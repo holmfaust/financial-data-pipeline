@@ -277,6 +277,8 @@ financial-data-pipeline/
     └── API.md
 ```
 
+> 📖 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for full system design and [API.md](docs/API.md) for module reference.
+
 ## 🔄 Data Flow
 
 ### 1. **Ingestion Phase**
@@ -453,11 +455,6 @@ Feel free to fork, improve, and create pull requests!
 MIT License
 
 ---
-
-**Created by**: [Your Name]  
-**Email**: your.email@example.com  
-**LinkedIn**: [Your LinkedIn]  
-**GitHub**: [Your GitHub]
 
 **Built for**: Data Engineer Position at LSEG  
 **Date**: December 2024

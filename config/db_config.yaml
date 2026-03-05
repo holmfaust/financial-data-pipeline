@@ -1,0 +1,363 @@
+# Database Configuration for Financial Data Pipeline
+
+postgresql:
+  # Connection settings
+  connection:
+    host: "localhost"
+    port: 5432
+    database: "financial_data"
+    user: "dataeng"
+    password: "dataeng123"
+    
+  # Connection pool
+  pool:
+    min_size: 2
+    max_size: 10
+    max_overflow: 5
+    pool_timeout: 30
+    pool_recycle: 3600
+    pool_pre_ping: true
+    
+  # Query settings
+  query:
+    timeout: 30
+    statement_timeout: "30s"
+    
+  # Performance settings
+  performance:
+    shared_buffers: "256MB"
+    effective_cache_size: "1GB"
+    maintenance_work_mem: "64MB"
+    checkpoint_completion_target: 0.9
+    wal_buffers: "16MB"
+    default_statistics_target: 100
+    random_page_cost: 1.1
+    effective_io_concurrency: 200
+    work_mem: "4MB"
+    min_wal_size: "1GB"
+    max_wal_size: "4GB"
+    max_worker_processes: 8
+    max_parallel_workers_per_gather: 4
+    max_parallel_workers: 8
+    max_parallel_maintenance_workers: 4
+    
+  # Tables configuration
+  tables:
+    stock_prices_raw:
+      partitioning:
+        enabled: true
+        type: "range"
+        column: "timestamp"
+        interval: "1 month"
+      indexes:
+        - name: "idx_stock_symbol_timestamp"
+          columns: ["symbol", "timestamp DESC"]
+          type: "btree"
+        - name: "idx_stock_timestamp"
+          columns: ["timestamp DESC"]
+          type: "btree"
+        - name: "idx_stock_source"
+          columns: ["source"]
+          type: "btree"
+      compression:
+        enabled: true
+        method: "pglz"
+        
+    crypto_prices_raw:
+      partitioning:
+        enabled: true
+        type: "range"
+        column: "timestamp"
+        interval: "1 month"
+      indexes:
+        - name: "idx_crypto_symbol_timestamp"
+          columns: ["symbol", "timestamp DESC"]
+          type: "btree"
+          
+    stock_metrics_1min:
+      partitioning:
+        enabled: true
+        type: "range"
+        column: "window_start"
+        interval: "1 week"
+      indexes:
+        - name: "idx_metrics_1min_symbol_window"
+          columns: ["symbol", "window_start DESC"]
+          type: "btree"
+          
+    stock_metrics_5min:
+      partitioning:
+        enabled: true
+        type: "range"
+        column: "window_start"
+        interval: "1 month"
+      indexes:
+        - name: "idx_metrics_5min_symbol_window"
+          columns: ["symbol", "window_start DESC"]
+          type: "btree"
+          
+    daily_stock_summary:
+      partitioning:
+        enabled: true
+        type: "range"
+        column: "trade_date"
+        interval: "1 year"
+      indexes:
+        - name: "idx_daily_symbol_date"
+          columns: ["symbol", "trade_date DESC"]
+          type: "btree"
+          unique: true
+          
+    technical_indicators:
+      indexes:
+        - name: "idx_indicators_symbol_timestamp_type"
+          columns: ["symbol", "timestamp", "indicator_type"]
+          type: "btree"
+          unique: true
+          
+    price_anomalies:
+      indexes:
+        - name: "idx_anomalies_symbol_timestamp"
+          columns: ["symbol", "timestamp DESC"]
+          type: "btree"
+        - name: "idx_anomalies_severity"
+          columns: ["severity"]
+          type: "btree"
+          
+  # Materialized views
+  materialized_views:
+    latest_prices_mv:
+      refresh: "on_demand"
+      query: |
+        SELECT DISTINCT ON (symbol)
+          symbol,
+          close_price as current_price,
+          volume,
+          timestamp,
+          source
+        FROM stock_prices_raw
+        ORDER BY symbol, timestamp DESC
+      indexes:
+        - columns: ["symbol"]
+          
+    daily_performance_mv:
+      refresh: "daily"
+      query: |
+        SELECT 
+          symbol,
+          trade_date,
+          close_price,
+          price_change_pct,
+          volume,
+          RANK() OVER (PARTITION BY trade_date ORDER BY price_change_pct DESC) as gain_rank,
+          RANK() OVER (PARTITION BY trade_date ORDER BY volume DESC) as volume_rank
+        FROM daily_stock_summary
+        WHERE trade_date >= CURRENT_DATE - INTERVAL '30 days'
+        
+  # Retention policies
+  retention:
+    stock_prices_raw:
+      period: "90 days"
+      policy: "delete"
+      archive: false
+      
+    crypto_prices_raw:
+      period: "90 days"
+      policy: "delete"
+      archive: false
+      
+    stock_metrics_1min:
+      period: "30 days"
+      policy: "delete"
+      archive: false
+      
+    stock_metrics_5min:
+      period: "180 days"
+      policy: "delete"
+      archive: true
+      archive_location: "s3://financial-data-archive/metrics-5min/"
+      
+    daily_stock_summary:
+      period: "10 years"
+      policy: "keep"
+      archive: true
+      
+    price_anomalies:
+      period: "1 year"
+      policy: "delete"
+      archive: true
+      
+  # Backup configuration
+  backup:
+    enabled: true
+    type: "pg_dump"
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+    location: "/backups/postgresql"
+    compression: true
+    parallel_jobs: 4
+    
+  # Monitoring
+  monitoring:
+    enabled: true
+    slow_query_log: true
+    slow_query_threshold: "1s"
+    log_connections: true
+    log_disconnections: true
+    log_duration: true
+    log_statement: "ddl"
+    
+redis:
+  # Connection settings
+  connection:
+    host: "localhost"
+    port: 6379
+    db: 0
+    password: null
+    ssl: false
+    
+  # Connection pool
+  pool:
+    max_connections: 50
+    socket_timeout: 5
+    socket_connect_timeout: 5
+    socket_keepalive: true
+    
+  # Caching strategy
+  caching:
+    default_ttl: 300  # 5 minutes
+    
+    # Key patterns and TTLs
+    patterns:
+      "price:*":
+        ttl: 60  # 1 minute for prices
+      "market:summary":
+        ttl: 30  # 30 seconds for market summary
+      "metrics:*":
+        ttl: 300  # 5 minutes for metrics
+      "anomalies:*":
+        ttl: 600  # 10 minutes for anomalies
+        
+  # Eviction policy
+  eviction:
+    policy: "allkeys-lru"
+    max_memory: "512mb"
+    
+  # Persistence
+  persistence:
+    enabled: true
+    rdb:
+      enabled: true
+      save_intervals:
+        - "900 1"    # Save after 900s if 1 key changed
+        - "300 10"   # Save after 300s if 10 keys changed
+        - "60 10000" # Save after 60s if 10000 keys changed
+    aof:
+      enabled: false
+      
+  # Replication
+  replication:
+    enabled: false
+    master_host: null
+    master_port: null
+    
+# Data quality checks
+data_quality:
+  enabled: true
+  
+  # Check definitions
+  checks:
+    completeness:
+      enabled: true
+      tables:
+        - "stock_prices_raw"
+        - "crypto_prices_raw"
+      threshold: 0.95  # 95% completeness required
+      
+    freshness:
+      enabled: true
+      tables:
+        - "stock_prices_raw"
+      max_age_minutes: 10
+      
+    accuracy:
+      enabled: true
+      rules:
+        - table: "stock_prices_raw"
+          column: "close_price"
+          min: 0
+          max: 100000
+        - table: "stock_prices_raw"
+          column: "volume"
+          min: 0
+          
+    uniqueness:
+      enabled: true
+      tables:
+        - table: "stock_prices_raw"
+          columns: ["symbol", "timestamp", "source"]
+          
+    consistency:
+      enabled: true
+      rules:
+        - name: "price_consistency"
+          query: |
+            SELECT COUNT(*) FROM stock_prices_raw
+            WHERE close_price < low_price 
+               OR close_price > high_price
+          expected: 0
+          
+  # Alerting
+  alerts:
+    enabled: true
+    channels:
+      - type: "log"
+        enabled: true
+      - type: "email"
+        enabled: false
+        recipients: ["data-team@company.com"]
+      - type: "slack"
+        enabled: false
+        webhook_url: null
+        
+# Environment-specific overrides
+environments:
+  development:
+    postgresql:
+      connection:
+        host: "localhost"
+      pool:
+        max_size: 5
+      performance:
+        shared_buffers: "128MB"
+    redis:
+      connection:
+        host: "localhost"
+        
+  staging:
+    postgresql:
+      connection:
+        host: "postgres-staging"
+      pool:
+        max_size: 20
+    redis:
+      connection:
+        host: "redis-staging"
+        
+  production:
+    postgresql:
+      connection:
+        host: "postgres-prod.internal"
+      pool:
+        max_size: 50
+      backup:
+        location: "s3://backups/postgresql"
+    redis:
+      connection:
+        host: "redis-prod.internal"
+      replication:
+        enabled: true
+        master_host: "redis-master.internal"
+      persistence:
+        aof:
+          enabled: true

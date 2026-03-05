@@ -93,12 +93,13 @@ class DatabaseManager:
     def get_aggregated_metrics(self, symbol: str, window: str = '5min', 
                                limit: int = 100) -> List[Dict]:
         """Get aggregated metrics"""
+        
         table_map = {
             '1min': 'stock_metrics_1min',
-            '5min': 'stock_metrics_5min'
+            '5min': 'view_stock_metrics_indicators'  
         }
         
-        table_name = table_map.get(window, 'stock_metrics_5min')
+        table_name = table_map.get(window, 'view_stock_metrics_indicators')
         
         with self.get_connection() as conn:
             cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -111,8 +112,8 @@ class DatabaseManager:
                 LIMIT %s
             """
             cur.execute(query, (symbol, limit))
-            return cur.fetchall()
-    
+            return cur.fetchall()    
+            
     def get_anomalies(self, symbol: Optional[str] = None, 
                       hours: int = 24) -> List[Dict]:
         """Get detected anomalies"""

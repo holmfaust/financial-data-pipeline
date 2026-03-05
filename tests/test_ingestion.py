@@ -4,6 +4,7 @@ Unit tests for data ingestion components
 
 import pytest
 import json
+import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 import sys
@@ -14,6 +15,32 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.ingestion.stock_producer import StockDataProducer
 from src.ingestion.crypto_producer import CryptoDataProducer
 
+
+def test_end_to_end_pipeline():
+    """Test complete pipeline flow using mocks"""
+    with patch.dict(os.environ, {
+        'KAFKA_BOOTSTRAP_SERVERS': 'localhost:9092',
+        'STOCK_SYMBOLS': 'AAPL'
+    }):
+        with patch('src.ingestion.stock_producer.KafkaProducer') as mock_kafka:
+            mock_producer_instance = MagicMock()
+            mock_kafka.return_value = mock_producer_instance
+
+            producer = StockDataProducer()
+
+            sample_data = {
+                'symbol': 'AAPL',
+                'timestamp': datetime.now().isoformat(),
+                'close_price': 150.25,
+                'volume': 1000000,
+                'source': 'yfinance'
+            }
+
+            # Validate → Publish flow
+            assert producer.validate_data(sample_data) is True
+            result = producer.publish_to_kafka(sample_data)
+            assert result is True
+            mock_producer_instance.send.assert_called_once()
 
 class TestStockDataProducer:
     """Test cases for StockDataProducer"""
@@ -76,26 +103,15 @@ class TestStockDataProducer:
     
     @patch('src.ingestion.stock_producer.yf.Ticker')
     def test_fetch_stock_data_success(self, mock_ticker, producer):
-        """Test successful data fetching from yfinance"""
-        # Mock yfinance response
-        mock_history = Mock()
-        mock_history.iloc = [-1]
-        mock_history.__getitem__ = Mock(return_value=Mock(iloc=[-1]))
+        # ✅ Mock ที่ถูกต้อง
+        mock_df = pd.DataFrame({
+            'Open': [150.0], 'High': [152.0], 'Low': [149.0],
+            'Close': [151.5], 'Volume': [1000000]
+        })
+        mock_ticker.return_value.history.return_value = mock_df
         
-        mock_data = {
-            'Open': 150.0,
-            'High': 152.0,
-            'Low': 149.0,
-            'Close': 151.5,
-            'Volume': 1000000
-        }
-        
-        mock_history.iloc.__getitem__ = Mock(return_value=Mock(**mock_data))
-        mock_ticker.return_value.history.return_value = mock_history
-        
-        # This test would need more sophisticated mocking
-        # For now, we'll test the structure
-        assert producer.symbols == ['AAPL', 'GOOGL']
+        data = producer.fetch_stock_data_yfinance('AAPL')
+        assert data['close_price'] == 151.5
     
     @patch('src.ingestion.stock_producer.requests.get')
     def test_fetch_alpha_vantage_success(self, mock_get, producer):
