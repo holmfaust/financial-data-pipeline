@@ -227,7 +227,7 @@ jobs:
 
       - name: Test Redis connectivity
         run: |
-          redis-cli -h localhost ping
+          python -c "import redis; r = redis.Redis(host='localhost', port=6379); print('Redis ping:', r.ping())"
 
       - name: Test Python imports
         env:
