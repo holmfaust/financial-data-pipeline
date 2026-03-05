@@ -6,7 +6,7 @@ import json
 import time
 import logging
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict
 import os
 from dotenv import load_dotenv
 

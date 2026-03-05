@@ -3,7 +3,7 @@ Unit tests for data storage components (DatabaseManager and CacheManager)
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timedelta
 import sys
 import os

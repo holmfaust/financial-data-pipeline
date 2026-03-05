@@ -5,7 +5,7 @@ Unit and Integration Tests for Data Processing Components
 import pytest
 import pandas as pd
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import sys
 import os
 
@@ -441,9 +441,7 @@ class TestDatabaseOperations:
         records = [("AAPL", "2024-01-01", 150.0, 1000000), ("GOOGL", "2024-01-01", 2800.0, 500000)]
 
         # Simulate bulk insert
-        from psycopg2.extras import execute_values
 
-        query = "INSERT INTO stock_prices_raw (symbol, timestamp, close_price, volume) VALUES %s"
         # execute_values would be called here
 
         assert len(records) == 2
@@ -463,7 +461,7 @@ class TestDatabaseOperations:
         acquired = conn_pool.getconn()
 
         # Use connection (cursor)
-        cursor = acquired.cursor()
+        acquired.cursor()
 
         # Return connection to pool
         conn_pool.putconn(acquired)
@@ -511,7 +509,6 @@ class TestPerformance:
 
     def test_memory_efficiency(self):
         """Test memory usage for large datasets"""
-        import sys
 
         # Create large dataframe
         data = pd.DataFrame({"col1": range(100000), "col2": range(100000)})
@@ -566,13 +563,11 @@ class TestPerformance:
     def test_kafka_throughput(self):
         """Test Kafka can handle 10k messages/second (placeholder)"""
         # Integration test: requires live Kafka — skipped in unit test runs
-        pass
 
     @pytest.mark.benchmark
     def test_spark_latency(self):
         """Test Spark processing latency < 500ms (placeholder)"""
         # Integration test: requires live Spark — skipped in unit test runs
-        pass
 
 
 if __name__ == "__main__":

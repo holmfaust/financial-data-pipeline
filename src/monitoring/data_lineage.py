@@ -115,7 +115,7 @@ class DataLineageTracker:
             metadata JSONB,
             CONSTRAINT unique_dataset_name_version UNIQUE (name, created_at)
         );
-        
+
         -- Transformations table
         CREATE TABLE IF NOT EXISTS lineage_transformations (
             id VARCHAR(255) PRIMARY KEY,
@@ -134,7 +134,7 @@ class DataLineageTracker:
             error_message TEXT,
             FOREIGN KEY (output_dataset) REFERENCES lineage_datasets(id)
         );
-        
+
         -- Lineage edges table (for graph representation)
         CREATE TABLE IF NOT EXISTS lineage_edges (
             id SERIAL PRIMARY KEY,
@@ -147,7 +147,7 @@ class DataLineageTracker:
             FOREIGN KEY (transformation_id) REFERENCES lineage_transformations(id),
             CONSTRAINT unique_lineage_edge UNIQUE (source_dataset_id, target_dataset_id, transformation_id)
         );
-        
+
         -- Column-level lineage
         CREATE TABLE IF NOT EXISTS lineage_columns (
             id SERIAL PRIMARY KEY,
@@ -162,7 +162,7 @@ class DataLineageTracker:
             FOREIGN KEY (source_dataset_id) REFERENCES lineage_datasets(id),
             FOREIGN KEY (target_dataset_id) REFERENCES lineage_datasets(id)
         );
-        
+
         -- Indexes for performance
         CREATE INDEX IF NOT EXISTS idx_datasets_name ON lineage_datasets(name);
         CREATE INDEX IF NOT EXISTS idx_datasets_type ON lineage_datasets(type);
@@ -189,7 +189,7 @@ class DataLineageTracker:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        INSERT INTO lineage_datasets 
+                        INSERT INTO lineage_datasets
                         (id, name, type, schema, location, row_count, created_at, metadata)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
@@ -334,7 +334,7 @@ class DataLineageTracker:
                         # Get upstream datasets
                         cur.execute(
                             """
-                            SELECT 
+                            SELECT
                                 d.*,
                                 t.name as transformation_name,
                                 t.type as transformation_type
@@ -351,7 +351,7 @@ class DataLineageTracker:
                         # Get downstream datasets
                         cur.execute(
                             """
-                            SELECT 
+                            SELECT
                                 d.*,
                                 t.name as transformation_name,
                                 t.type as transformation_type
@@ -391,7 +391,7 @@ class DataLineageTracker:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute(
                         """
-                        SELECT 
+                        SELECT
                             t.*,
                             d.name as output_dataset_name
                         FROM lineage_transformations t
@@ -420,18 +420,18 @@ class DataLineageTracker:
                             SELECT id, name, type, 0 as level
                             FROM lineage_datasets
                             WHERE id = %s
-                            
+
                             UNION
-                            
+
                             -- Recursive case: upstream
                             SELECT d.id, d.name, d.type, lt.level - 1
                             FROM lineage_datasets d
                             JOIN lineage_edges e ON d.id = e.source_dataset_id
                             JOIN lineage_tree lt ON e.target_dataset_id = lt.id
                             WHERE lt.level > -5  -- Limit depth
-                            
+
                             UNION
-                            
+
                             -- Recursive case: downstream
                             SELECT d.id, d.name, d.type, lt.level + 1
                             FROM lineage_datasets d
@@ -451,7 +451,7 @@ class DataLineageTracker:
                     node_ids = [n["id"] for n in nodes]
                     cur.execute(
                         """
-                        SELECT 
+                        SELECT
                             e.*,
                             t.name as transformation_name,
                             t.type as transformation_type
@@ -481,16 +481,16 @@ class DataLineageTracker:
                             SELECT id, name, 1 as depth
                             FROM lineage_datasets
                             WHERE id = %s
-                            
+
                             UNION
-                            
+
                             SELECT d.id, d.name, ds.depth + 1
                             FROM lineage_datasets d
                             JOIN lineage_edges e ON d.id = e.target_dataset_id
                             JOIN downstream ds ON e.source_dataset_id = ds.id
                             WHERE ds.depth < 10
                         )
-                        SELECT 
+                        SELECT
                             name,
                             COUNT(*) as affected_count,
                             MAX(depth) as max_depth

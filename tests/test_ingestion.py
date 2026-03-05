@@ -3,7 +3,6 @@ Unit tests for data ingestion components
 """
 
 import pytest
-import json
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime

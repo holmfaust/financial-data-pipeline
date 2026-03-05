@@ -4,12 +4,12 @@ Database Manager - Handles database connections and operations
 
 import logging
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 from contextlib import contextmanager
 
 import psycopg2
-from psycopg2.extras import RealDictCursor, execute_values
+from psycopg2.extras import RealDictCursor
 import redis
 from dotenv import load_dotenv
 
@@ -80,10 +80,10 @@ class DatabaseManager:
             cur = conn.cursor(cursor_factory=RealDictCursor)
 
             query = """
-                SELECT symbol, timestamp, open_price, high_price, 
+                SELECT symbol, timestamp, open_price, high_price,
                        low_price, close_price, volume
                 FROM stock_prices_raw
-                WHERE symbol = %s 
+                WHERE symbol = %s
                   AND timestamp >= NOW() - INTERVAL '%s days'
                 ORDER BY timestamp ASC
             """
@@ -151,8 +151,8 @@ class DatabaseManager:
             cur = conn.cursor()
 
             query = """
-                INSERT INTO pipeline_runs 
-                (pipeline_name, run_id, status, records_processed, 
+                INSERT INTO pipeline_runs
+                (pipeline_name, run_id, status, records_processed,
                  records_failed, start_time, error_message)
                 VALUES (%s, %s, %s, %s, %s, NOW(), %s)
             """

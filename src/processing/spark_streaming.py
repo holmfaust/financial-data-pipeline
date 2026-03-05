@@ -6,8 +6,6 @@ FIXED: Removed unsupported row-based window functions for streaming
 
 import os
 import logging
-from datetime import datetime
-from typing import Dict
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
@@ -20,8 +18,6 @@ from pyspark.sql.functions import (
     min as spark_min,
     max as spark_max,
     sum as spark_sum,
-    lag,
-    lead,
     when,
     abs as spark_abs,
     lit,
@@ -33,9 +29,7 @@ from pyspark.sql.types import (
     StringType,
     DoubleType,
     LongType,
-    TimestampType,
 )
-from pyspark.sql.window import Window
 from dotenv import load_dotenv
 
 # Setup logging
